@@ -21,7 +21,7 @@ from pythonosc.udp_client import SimpleUDPClient
 import numpy as np
 
 #Server IP & Port
-server_ip = '192.168.4.116'
+server_ip = ''
 server_port = 8002
 client_ip = '127.0.0.1'
 client_port = 8001

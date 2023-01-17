@@ -21,13 +21,16 @@ from pythonosc.udp_client import SimpleUDPClient
 import numpy as np
 
 #Server IP & Port
-server_ip = '192.168.4.116'
-server_port = 8002
+server_ip = ''
+server_port = 8000
 client_ip = '127.0.0.1'
 client_port = 8001
 
+
 #Create Dispatcher Object
 dispatch = Dispatcher()
+
+
 
 #Dataqueue for messages
 class DataQueue(queue.Queue):
@@ -116,7 +119,7 @@ dispatch.map('/muse/elements/horseshoe', hsi_reciever.recieve)
 #Map Acceleromters
 acc_dataqueue = DataQueue()
 acc_reciever = Reciever(acc_dataqueue, 'acc')
-acc_mv = MVAverage(window=5, numq=3)
+acc_mv = MVAverage(window=10, numq=3)
 dispatch.map('/muse/acc', acc_reciever.recieve)
 acc_rangelimiter = RangeLimiter([-2,2], [0,1])
 
@@ -131,6 +134,16 @@ server_thread = threading.Thread(target=server.serve_forever, daemon=True)
 #Making a client
 client = SimpleUDPClient(client_ip, client_port)
 
+
+
+#Client Function
+clients = [client]
+def send_to_clients(clients, addr, message):
+
+    for cl in clients:
+        cl.send_message(addr, message)
+        time.sleep(0.01)
+    
 #Alpha Thread Function - What Retrieves Data and Moves it Forward
 def wave_proc():
     while True:
@@ -158,17 +171,17 @@ def wave_proc():
         alpha_message = alpha_output_mv.run(alpha_out) #Output mv is one value 
         beta_message = beta_output_mv.run(beta_out) 
 
-        client.send_message('/alpha_wave', alpha_message)
-        time.sleep(0.001)
-        client.send_message('/beta_wave', beta_message)
-        time.sleep(0.001)
+        send_to_clients(clients, '/alpha_wave', alpha_message)
+        send_to_clients(clients, '/beta_wave', beta_message)
+
+
 
 #Accelerometer Thread Function
 def acc_proc():
     while True:
         acc = acc_rangelimiter.squeeze(acc_mv.run(acc_dataqueue.get_message()[0]))
-        client.send_message('/acc', acc)
-        time.sleep(0.001)
+        send_to_clients(clients, '/acc', acc)
+
 
 #Create Threads
 wave_thread = threading.Thread(target=wave_proc)
@@ -177,9 +190,13 @@ acc_thread = threading.Thread(target=acc_proc)
 #Start Server Thread
 def main():
     server_thread.start()
+    print('SERVING ON: ', server_ip, ':', server_port)
+
     wave_thread.start()
 
     acc_thread.start()
+    print('SENDING TO ', client_ip, ':', client_port)
+    print('SENDING TO ', client2_ip,':',client2_port)
 
 if __name__ == "__main__":
     try:

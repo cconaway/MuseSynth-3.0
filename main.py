@@ -196,7 +196,6 @@ def main():
 
     acc_thread.start()
     print('SENDING TO ', client_ip, ':', client_port)
-    print('SENDING TO ', client2_ip,':',client2_port)
 
 if __name__ == "__main__":
     try:

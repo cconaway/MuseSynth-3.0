@@ -22,15 +22,24 @@ import numpy as np
 
 #Server IP & Port
 server_ip = ''
-server_port = 8002
-client_ip = '127.0.0.1'
-client_port = 8001
+server_port = 8000
 
+client_ip1 = ''
+client_port1 = 8001
+
+client_ip2 = ""
+client_port2 = 8000
+
+
+
+
+#Making a client
+client = SimpleUDPClient(client_ip1, client_port1)
+client2 = SimpleUDPClient(client_ip2, client_port2)
+#Send to multiple clients
 
 #Create Dispatcher Object
 dispatch = Dispatcher()
-
-
 
 #Dataqueue for messages
 class DataQueue(queue.Queue):
@@ -131,25 +140,21 @@ beta_output_mv = MVAverage(window=10, numq=1)
 server = osc_server.BlockingOSCUDPServer((server_ip, server_port), dispatch)
 #Create Server Thread
 server_thread = threading.Thread(target=server.serve_forever, daemon=True)
-#Making a client
-client = SimpleUDPClient(client_ip, client_port)
-
-
 
 #Client Function
-clients = [client]
+clients = [client, client2]
 def send_to_clients(clients, addr, message):
-
     for cl in clients:
         cl.send_message(addr, message)
         time.sleep(0.01)
-    
+
+
 #Alpha Thread Function - What Retrieves Data and Moves it Forward
 def wave_proc():
     while True:
         alphas = alpha_mv.run(alpha_dataqueue.get_message()[0]) #Get's 4 streams of EEG.
         betas = beta_mv.run(beta_dataqueue.get_message()[0])
-        hsi = hsi_dataqueue.get_message()[0]                                                     #Right now these queues are competing.
+        hsi = hsi_dataqueue.get_message()[0]       #Right now these queues are competing.
         
         alphaval = 0
         betaval = 0
@@ -171,6 +176,7 @@ def wave_proc():
         alpha_message = alpha_output_mv.run(alpha_out) #Output mv is one value 
         beta_message = beta_output_mv.run(beta_out) 
 
+
         send_to_clients(clients, '/alpha_wave', alpha_message)
         send_to_clients(clients, '/beta_wave', beta_message)
 
@@ -181,6 +187,8 @@ def acc_proc():
     while True:
         acc = acc_rangelimiter.squeeze(acc_mv.run(acc_dataqueue.get_message()[0]))
         send_to_clients(clients, '/acc', acc)
+
+
 
 
 #Create Threads
@@ -195,7 +203,9 @@ def main():
     wave_thread.start()
 
     acc_thread.start()
-    print('SENDING TO ', client_ip, ':', client_port)
+
+    for client in clients:
+        print('SENDING TO ', client._address, ':', client._port)
 
 if __name__ == "__main__":
     try:
